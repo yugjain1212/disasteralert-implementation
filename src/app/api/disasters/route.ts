@@ -3,6 +3,10 @@ import { db } from '@/db';
 import { disaster_events } from '@/db/schema';
 import { eq, and, or, desc } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth';
+import { sendAlertsForEvent } from '@/lib/notifier';
+
+// Natural disaster API key
+const API_KEY = process.env.NEXT_PUBLIC_GETABEE_API_KEY;
 
 const ALLOWED_TYPES = ['earthquake', 'flood', 'wildfire', 'cyclone', 'tsunami', 'storm'];
 const ALLOWED_SEVERITIES = ['low', 'moderate', 'severe'];
@@ -55,7 +59,7 @@ export async function GET(request: NextRequest) {
 
     // Default to active disasters only
     if (active !== 'false') {
-      conditions.push(eq(disaster_events.isActive, 1));
+      conditions.push(eq(disaster_events.isActive, true));
     }
 
     if (type) {
@@ -195,9 +199,28 @@ export async function POST(request: NextRequest) {
         userId: user.id,
         createdAt: now,
         updatedAt: now,
-        isActive: 1
+        isActive: true
       })
       .returning();
+
+    // Fire-and-forget alert notifications (non-blocking)
+    try {
+      const ev = newDisaster[0];
+      await sendAlertsForEvent({
+        id: ev.id as number,
+        type: ev.type as string,
+        title: ev.title as string,
+        location: ev.location as string,
+        severity: ev.severity as string,
+        magnitude: (ev as any).magnitude ?? null,
+        description: (ev as any).description ?? null,
+        lat: ev.lat as number,
+        lng: ev.lng as number,
+        timestamp: (ev.timestamp as any) as number,
+      });
+    } catch (e) {
+      console.error('Notifier error (non-blocking):', e);
+    }
 
     return NextResponse.json(newDisaster[0], { status: 201 });
   } catch (error) {

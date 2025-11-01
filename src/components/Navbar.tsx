@@ -17,6 +17,7 @@ import {
   Zap,
   User,
   LogOut,
+  ArrowLeft,
 } from "lucide-react";
 import { useState } from "react";
 import Link from "next/link";
@@ -229,12 +230,22 @@ const Navbar = () => {
       <div className="container max-w-7xl mx-auto px-4 ">
         <NavigationMenu className="min-w-full">
           <div className="flex w-full items-center justify-between gap-12 py-4">
-            <Link href="/" className="flex items-center gap-2">
-              <AlertTriangle className="text-primary" />
-              <span className="text-lg font-semibold tracking-tighter">
-                DisasterAlert
-              </span>
-            </Link>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label="Back"
+                onClick={() => router.back()}
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              <Link href="/" className="flex items-center gap-2">
+                <AlertTriangle className="text-primary" />
+                <span className="text-lg font-semibold tracking-tighter">
+                  DisasterAlert
+                </span>
+              </Link>
+            </div>
             <NavigationMenuList className="hidden lg:flex">
               <NavigationMenuItem>
                 <NavigationMenuTrigger className="bg-transparent">
@@ -384,6 +395,14 @@ const Navbar = () => {
               )}
             </div>
             <div className="flex items-center gap-4 lg:hidden">
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label="Back"
+                onClick={() => router.back()}
+              >
+                <ArrowLeft className="size-4" />
+              </Button>
               <Button
                 variant="outline"
                 size="icon"

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useSession } from "@/lib/auth-client";
+import { supabase } from "@/lib/supabase";
 import { 
   Activity, 
   Flame, 
@@ -61,7 +61,8 @@ const getSeverityColor = (severity: DisasterEvent['severity']) => {
 };
 
 export default function DashboardPage() {
-  const { data: session, isPending } = useSession();
+  const [sessionUser, setSessionUser] = useState<any>(null);
+  const [isPending, setIsPending] = useState(true);
   const router = useRouter();
   const [events, setEvents] = useState<DisasterEvent[]>([]);
   const [selectedType, setSelectedType] = useState<string | null>(null);
@@ -70,33 +71,40 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Supabase session check
   useEffect(() => {
-    if (!isPending && !session?.user) {
-      router.push("/login");
-    }
-  }, [session, isPending, router]);
+    let unsub: { subscription?: { unsubscribe: () => void } } = {};
+    const init = async () => {
+      setIsPending(true);
+      const { data } = await supabase.auth.getSession();
+      setSessionUser(data.session?.user ?? null);
+      setIsPending(false);
+      const sub = supabase.auth.onAuthStateChange((_event, newSession) => {
+        setSessionUser(newSession?.user ?? null);
+      });
+      unsub = { subscription: sub.data.subscription } as any;
+    };
+    init();
+    return () => {
+      unsub.subscription?.unsubscribe?.();
+    };
+  }, []);
 
   // Fetch disasters from API
   useEffect(() => {
     const fetchDisasters = async () => {
-      if (!session?.user) return;
+      if (!sessionUser) return;
 
       try {
         setIsLoading(true);
         setError(null);
 
-        const token = localStorage.getItem("bearer_token");
-        const response = await fetch("/api/disasters?active=false", {
-          headers: {
-            "Authorization": `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        });
+        const response = await fetch("/api/disasters?active=false");
 
         if (!response.ok) {
           if (response.status === 401) {
-            toast.error("Session expired. Please login again.");
-            router.push("/login");
+            // Show error but do not redirect; keep dashboard open
+            toast.error("You are not authorized to view data yet.");
             return;
           }
           throw new Error(`Failed to fetch disasters: ${response.statusText}`);
@@ -113,10 +121,10 @@ export default function DashboardPage() {
       }
     };
 
-    if (session?.user) {
+    if (sessionUser) {
       fetchDisasters();
     }
-  }, [session, router]);
+  }, [sessionUser, router]);
 
   if (isPending) {
     return (
@@ -129,7 +137,7 @@ export default function DashboardPage() {
     );
   }
 
-  if (!session?.user) {
+  if (!sessionUser) {
     return null;
   }
 

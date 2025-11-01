@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { useSession } from "@/lib/auth-client";
+import { supabase } from "@/lib/supabase";
 import { 
   Loader2,
   Send,
@@ -13,7 +13,8 @@ import {
   MessageSquare,
   Bot,
   User,
-  Trash2
+  Trash2,
+  ArrowLeft
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -28,7 +29,8 @@ interface Message {
 }
 
 export default function SetumitraPage() {
-  const { data: session, isPending } = useSession();
+  const [sessionUser, setSessionUser] = useState<any>(null);
+  const [isPending, setIsPending] = useState(true);
   const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
@@ -47,11 +49,24 @@ export default function SetumitraPage() {
   const recognitionRef = useRef<any>(null);
   const synthRef = useRef<SpeechSynthesis | null>(null);
 
+  // Supabase session check (cookie-based)
   useEffect(() => {
-    if (!isPending && !session?.user) {
-      router.push("/login");
-    }
-  }, [session, isPending, router]);
+    let unsub: { subscription?: { unsubscribe: () => void } } = {};
+    const init = async () => {
+      setIsPending(true);
+      const { data } = await supabase.auth.getSession();
+      setSessionUser(data.session?.user ?? null);
+      setIsPending(false);
+      const sub = supabase.auth.onAuthStateChange((_event, newSession) => {
+        setSessionUser(newSession?.user ?? null);
+      });
+      unsub = { subscription: sub.data.subscription } as any;
+    };
+    init();
+    return () => {
+      unsub.subscription?.unsubscribe?.();
+    };
+  }, []);
 
   // Initialize Speech Recognition
   useEffect(() => {
@@ -240,7 +255,7 @@ export default function SetumitraPage() {
     );
   }
 
-  if (!session?.user) {
+  if (!sessionUser) {
     return null;
   }
 
@@ -260,6 +275,14 @@ export default function SetumitraPage() {
           <div className="p-6 border-b border-border bg-card/50">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => router.push("/dashboard")}
+                  className="mr-2"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
                 <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
                   <Bot className="w-6 h-6 text-primary" />
                 </div>

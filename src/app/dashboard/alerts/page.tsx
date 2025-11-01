@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSession } from "@/lib/auth-client";
+import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { Bell, AlertTriangle, Info, CheckCircle, XCircle } from "lucide-react";
 import { toast } from "sonner";
@@ -19,31 +19,44 @@ interface DisasterEvent {
 }
 
 export default function AlertsPage() {
-  const { data: session, isPending } = useSession();
+  const [sessionUser, setSessionUser] = useState<any>(null);
+  const [isPending, setIsPending] = useState(true);
   const router = useRouter();
   const [disasters, setDisasters] = useState<DisasterEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>("all");
 
+  // Supabase session check
   useEffect(() => {
-    if (!isPending && !session?.user) {
-      router.push("/login");
-    }
-  }, [session, isPending, router]);
+    let unsub: { subscription?: { unsubscribe: () => void } } = {};
+    const init = async () => {
+      setIsPending(true);
+      const { data } = await supabase.auth.getSession();
+      setSessionUser(data.session?.user ?? null);
+      setIsPending(false);
+      const sub = supabase.auth.onAuthStateChange((_event, s) => {
+        setSessionUser(s?.user ?? null);
+      });
+      unsub = { subscription: sub.data.subscription } as any;
+    };
+    init();
+    return () => {
+      unsub.subscription?.unsubscribe?.();
+    };
+  }, []);
 
   useEffect(() => {
     const fetchDisasters = async () => {
       try {
         setIsLoading(true);
-        const token = localStorage.getItem("bearer_token");
-        const response = await fetch("/api/disasters", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        const response = await fetch("/api/disasters");
 
         if (!response.ok) {
+          if (response.status === 401) {
+            setError("Not authorized to view alerts yet.");
+            return;
+          }
           throw new Error("Failed to fetch alerts");
         }
 
@@ -58,10 +71,10 @@ export default function AlertsPage() {
       }
     };
 
-    if (session?.user) {
+    if (sessionUser) {
       fetchDisasters();
     }
-  }, [session]);
+  }, [sessionUser]);
 
   const getSeverityIcon = (severity: string) => {
     switch (severity.toLowerCase()) {
@@ -108,18 +121,30 @@ export default function AlertsPage() {
     );
   }
 
-  if (!session?.user) {
+  if (!sessionUser) {
     return null;
   }
 
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold mb-2">Disaster Alerts</h1>
-        <p className="text-muted-foreground">
-          Real-time notifications and warnings for disaster events
-        </p>
+      <div className="flex items-center gap-4 mb-4">
+        <button
+          onClick={() => router.push('/dashboard')}
+          className="flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-lg border border-input bg-background hover:bg-accent hover:text-accent-foreground"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-arrow-left">
+            <path d="m12 19-7-7 7-7"/>
+            <path d="M19 12H5"/>
+          </svg>
+          Back
+        </button>
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Disaster Alerts</h1>
+          <p className="text-muted-foreground">
+            Real-time notifications and warnings for disaster events
+          </p>
+        </div>
       </div>
 
       {/* Filters */}

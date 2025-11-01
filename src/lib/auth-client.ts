@@ -26,14 +26,15 @@ export function useSession(): SessionData {
    const [session, setSession] = useState<any>(null);
    const [isPending, setIsPending] = useState(true);
    const [error, setError] = useState<any>(null);
+   const [isRefetching, setIsRefetching] = useState(false);
 
    const refetch = () => {
-      setIsPending(true);
+      setIsRefetching(true);
       setError(null);
-      fetchSession();
+      fetchSession(true);
    };
 
-   const fetchSession = async () => {
+   const fetchSession = async (refresh: boolean = false) => {
       try {
          const res = await authClient.getSession({
             fetchOptions: {
@@ -49,7 +50,11 @@ export function useSession(): SessionData {
          setSession(null);
          setError(err);
       } finally {
-         setIsPending(false);
+         if (refresh) {
+           setIsRefetching(false);
+         } else {
+           setIsPending(false);
+         }
       }
    };
 
@@ -57,5 +62,5 @@ export function useSession(): SessionData {
       fetchSession();
    }, []);
 
-   return { data: session, isPending, error, refetch };
+   return { data: session, isPending, isRefetching, error, refetch };
 }

@@ -84,3 +84,23 @@ export const disaster_events = sqliteTable('disaster_events', {
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
   isActive: integer('is_active', { mode: 'boolean' }).default(true).notNull(),
 });
+
+// Alert subscriptions (per user)
+export const alert_subscriptions = sqliteTable('alert_subscriptions', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: text('user_id').notNull().references(() => user.id),
+  // Home/base location for proximity alerts
+  lat: real('lat').notNull(),
+  lng: real('lng').notNull(),
+  // Radius for alerts in kilometers
+  radiusKm: real('radius_km').notNull(),
+  // CSV categories like "earthquake,tsunami"
+  categories: text('categories').notNull(),
+  // Channels CSV: "email,sms"
+  channels: text('channels').notNull(),
+  // Optional contact overrides (falls back to user.email for email channel)
+  email: text('email'),
+  phone: text('phone'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date()).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).$defaultFn(() => new Date()).notNull(),
+});

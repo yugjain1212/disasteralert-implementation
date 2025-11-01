@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSession } from "@/lib/auth-client";
+import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { Activity, Clock, MapPin, AlertCircle } from "lucide-react";
+import { DisasterQuiz } from "@/components/quiz/DisasterQuiz";
 import { toast } from "sonner";
 
 interface DisasterEvent {
@@ -20,30 +21,43 @@ interface DisasterEvent {
 }
 
 export default function ActivityPage() {
-  const { data: session, isPending } = useSession();
+  const [sessionUser, setSessionUser] = useState<any>(null);
+  const [isPending, setIsPending] = useState(true);
   const router = useRouter();
   const [disasters, setDisasters] = useState<DisasterEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Supabase session check
   useEffect(() => {
-    if (!isPending && !session?.user) {
-      router.push("/login");
-    }
-  }, [session, isPending, router]);
+    let unsub: { subscription?: { unsubscribe: () => void } } = {};
+    const init = async () => {
+      setIsPending(true);
+      const { data } = await supabase.auth.getSession();
+      setSessionUser(data.session?.user ?? null);
+      setIsPending(false);
+      const sub = supabase.auth.onAuthStateChange((_event, s) => {
+        setSessionUser(s?.user ?? null);
+      });
+      unsub = { subscription: sub.data.subscription } as any;
+    };
+    init();
+    return () => {
+      unsub.subscription?.unsubscribe?.();
+    };
+  }, []);
 
   useEffect(() => {
     const fetchDisasters = async () => {
       try {
         setIsLoading(true);
-        const token = localStorage.getItem("bearer_token");
-        const response = await fetch("/api/disasters", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        const response = await fetch("/api/disasters");
 
         if (!response.ok) {
+          if (response.status === 401) {
+            setError("Not authorized to view activity yet.");
+            return;
+          }
           throw new Error("Failed to fetch activity");
         }
 
@@ -65,10 +79,10 @@ export default function ActivityPage() {
       }
     };
 
-    if (session?.user) {
+    if (sessionUser) {
       fetchDisasters();
     }
-  }, [session]);
+  }, [sessionUser]);
 
   const getTimeAgo = (dateString: string) => {
     const date = new Date(dateString);
@@ -120,18 +134,32 @@ export default function ActivityPage() {
     );
   }
 
-  if (!session?.user) {
+  if (!sessionUser) {
     return null;
   }
 
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold mb-2">Activity Timeline</h1>
-        <p className="text-muted-foreground">
-          Complete history of disaster events and system activities
-        </p>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <div className="flex items-center space-x-4 mb-2">
+            <button 
+              onClick={() => router.push('/dashboard')}
+              className="flex items-center gap-1 px-3 py-1 text-sm border rounded-md hover:bg-muted transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-arrow-left">
+                <path d="m12 19-7-7 7-7"/>
+                <path d="M19 12H5"/>
+              </svg>
+              Back
+            </button>
+            <h1 className="text-3xl font-bold">Activity Timeline</h1>
+          </div>
+          <p className="text-muted-foreground">
+            Complete history of disaster events and system activities
+          </p>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -264,6 +292,15 @@ export default function ActivityPage() {
           </div>
         </div>
       )}
+
+      {/* Disaster Awareness Quiz */}
+      <div className="mt-10">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-2xl font-bold">Disaster Awareness Quiz</h2>
+          <p className="text-sm text-muted-foreground">Choose a topic like Earthquake or Tsunami to get started</p>
+        </div>
+        <DisasterQuiz />
+      </div>
     </div>
   );
 }

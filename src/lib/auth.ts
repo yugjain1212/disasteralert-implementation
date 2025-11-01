@@ -1,22 +1,25 @@
-import { betterAuth } from "better-auth";
-import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { bearer } from "better-auth/plugins";
-import { NextRequest } from 'next/server';
-import { headers } from "next/headers"
-import { db } from "@/db";
- 
-export const auth = betterAuth({
-	database: drizzleAdapter(db, {
-		provider: "sqlite",
-	}),
-	emailAndPassword: {    
-		enabled: true
-	},
-	plugins: [bearer()]
-});
+import { cookies } from 'next/headers';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 
-// Session validation helper
-export async function getCurrentUser(request: NextRequest) {
-  const session = await auth.api.getSession({ headers: await headers() });
-  return session?.user || null;
+// Session validation helper (cookie-based)
+export async function getCurrentUser(_request?: Request) {
+  try {
+    // Pass the cookies helper directly so it's evaluated in the correct context
+    const supabase = createRouteHandlerClient({ cookies });
+
+    const { data, error } = await supabase.auth.getUser();
+
+    if (error || !data.user) {
+      return null;
+    }
+
+    return {
+      id: data.user.id,
+      email: data.user.email,
+      name: (data.user.user_metadata as any)?.name || data.user.email,
+    };
+  } catch (error) {
+    console.error('Error getting current user:', error);
+    return null;
+  }
 }
