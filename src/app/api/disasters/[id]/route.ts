@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { disaster_events } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
@@ -8,7 +8,7 @@ const VALID_TYPES = ['earthquake', 'flood', 'wildfire', 'cyclone', 'tsunami', 's
 const VALID_SEVERITIES = ['low', 'moderate', 'severe'];
 
 export async function GET(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -58,7 +58,7 @@ export async function GET(
 }
 
 export async function PUT(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -200,7 +200,7 @@ export async function PUT(
 }
 
 export async function DELETE(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {

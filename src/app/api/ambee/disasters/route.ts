@@ -1,20 +1,22 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
 // Proxy Ambee Disasters: latest by continent
 // Docs/source provided by user: https://api.ambeedata.com/disasters/latest/by-continent
 // Requires GETAMBEE_API_KEY in env. We forward any query params (e.g., continent=Asia)
 
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
     const apiKey = process.env.GETAMBEE_API_KEY;
     if (!apiKey) {
-      return NextResponse.json({ error: 'GETAMBEE_API_KEY is not configured' }, { status: 500 });
+      // Demo-friendly response when no key configured
+      return NextResponse.json({ data: [], note: 'GETAMBEE_API_KEY not set; returning empty demo data' }, { status: 200 });
     }
 
     const base = 'https://api.ambeedata.com/disasters/latest/by-continent';
     const url = new URL(base);
     // passthrough all search params
-    for (const [k, v] of request.nextUrl.searchParams.entries()) {
+    const urlObj = new URL(request.url);
+    for (const [k, v] of urlObj.searchParams.entries()) {
       url.searchParams.set(k, v);
     }
 

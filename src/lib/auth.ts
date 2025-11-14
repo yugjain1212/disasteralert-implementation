@@ -1,23 +1,19 @@
 import { cookies } from 'next/headers';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 
-// Session validation helper (cookie-based)
+// Demo-only current user based on cookie. If `demo_auth=1` is present,
+// return a mock user. Otherwise return null.
 export async function getCurrentUser(_request?: Request) {
   try {
-    // Pass the cookies helper directly so it's evaluated in the correct context
-    const supabase = createRouteHandlerClient({ cookies });
-
-    const { data, error } = await supabase.auth.getUser();
-
-    if (error || !data.user) {
-      return null;
+    const store = await cookies();
+    const demo = store.get('demo_auth');
+    if (demo?.value === '1') {
+      return {
+        id: 'demo-user',
+        email: 'demo@demo.com',
+        name: 'Demo User',
+      } as const;
     }
-
-    return {
-      id: data.user.id,
-      email: data.user.email,
-      name: (data.user.user_metadata as any)?.name || data.user.email,
-    };
+    return null;
   } catch (error) {
     console.error('Error getting current user:', error);
     return null;
