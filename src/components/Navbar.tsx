@@ -19,7 +19,7 @@ import {
   LogOut,
   ArrowLeft,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { authClient, useSession } from "@/lib/auth-client";
@@ -211,9 +211,43 @@ const DATA_RESOURCES: Resource[] = [
 const Navbar = () => {
   const [open, setOpen] = useState(false);
   const { data: session, isPending, refetch } = useSession();
+  const [demoUser, setDemoUser] = useState<{ name: string; email: string } | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const cookieStr = document.cookie || "";
+    const hasDemo = cookieStr.split(";").some((c) => c.trim().startsWith("demo_auth=1"));
+    const userStr = localStorage.getItem("demo_user");
+    if (hasDemo && userStr) {
+      try {
+        setDemoUser(JSON.parse(userStr));
+      } catch {}
+    } else {
+      setDemoUser(null);
+    }
+  }, [isPending, session?.user]);
+
+  const effectiveSession = demoUser
+    ? { user: { name: demoUser.name, email: demoUser.email } }
+    : session;
   const router = useRouter();
 
   const handleSignOut = async () => {
+    // Demo sign-out path
+    const cookieStr = typeof document !== "undefined" ? document.cookie : "";
+    const isDemo = cookieStr.split(";").some((c) => c.trim().startsWith("demo_auth=1"));
+    if (isDemo) {
+      // Clear demo cookie
+      document.cookie = "demo_auth=; Path=/; Max-Age=0";
+      // Clear demo user
+      localStorage.removeItem("demo_user");
+      setDemoUser(null);
+      router.push("/");
+      toast.success("Signed out successfully");
+      return;
+    }
+
+    // Real auth sign-out
     const { error } = await authClient.signOut();
     if (error?.code) {
       toast.error(error.code);
@@ -339,7 +373,7 @@ const Navbar = () => {
             <div className="hidden items-center gap-4 lg:flex">
               {isPending ? (
                 <div className="h-9 w-24 animate-pulse bg-muted rounded" />
-              ) : session?.user ? (
+              ) : effectiveSession?.user ? (
                 <>
                   <Link href="/dashboard">
                     <Button variant="ghost">
@@ -356,9 +390,9 @@ const Navbar = () => {
                     <DropdownMenuContent align="end" className="w-56">
                       <DropdownMenuLabel>
                         <div className="flex flex-col space-y-1">
-                          <p className="text-sm font-medium leading-none">{session.user.name}</p>
+                          <p className="text-sm font-medium leading-none">{effectiveSession.user.name}</p>
                           <p className="text-xs leading-none text-muted-foreground">
-                            {session.user.email}
+                            {effectiveSession.user.email}
                           </p>
                         </div>
                       </DropdownMenuLabel>
@@ -440,7 +474,7 @@ const Navbar = () => {
                 >
                   <span className="flex-1">Resources</span>
                 </Link>
-                {session?.user && (
+                {effectiveSession?.user && (
                   <Link
                     href="/dashboard"
                     className="flex w-full items-center border-b-2 border-dashed px-8 py-4 text-left"
@@ -451,11 +485,11 @@ const Navbar = () => {
                 )}
               </div>
               <div className="mx-[2rem] mt-auto flex flex-col gap-4 py-12">
-                {session?.user ? (
+                {effectiveSession?.user ? (
                   <>
                     <div className="text-center">
-                      <p className="font-medium">{session.user.name}</p>
-                      <p className="text-sm text-muted-foreground">{session.user.email}</p>
+                      <p className="font-medium">{effectiveSession.user.name}</p>
+                      <p className="text-sm text-muted-foreground">{effectiveSession.user.email}</p>
                     </div>
                     <Button onClick={handleSignOut} variant="outline" size="lg">
                       Sign Out

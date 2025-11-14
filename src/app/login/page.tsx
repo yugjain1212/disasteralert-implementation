@@ -9,7 +9,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { AlertCircle, Shield, Mail, Lock, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { supabase } from "@/lib/supabase";
 import Image from "next/image";
 
 export default function LoginPage() {
@@ -26,23 +25,30 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: formData.email,
-        password: formData.password,
-      });
+      // Demo account: simple frontend-only auth
+      const demoEmail = "demo@demo.com";
+      const demoPassword = "demo123";
 
-      if (error) {
-        toast.error("Invalid email or password. Please make sure you have already registered an account and try again.");
-        setIsLoading(false);
+      if (formData.email === demoEmail && formData.password === demoPassword) {
+        // Set a simple auth cookie for middleware checks
+        const maxAgeDays = formData.rememberMe ? 30 : 1;
+        document.cookie = `demo_auth=1; Path=/; Max-Age=${60 * 60 * 24 * maxAgeDays}`;
+        // Store basic user info for UI
+        localStorage.setItem(
+          "demo_user",
+          JSON.stringify({
+            name: "Demo User",
+            email: demoEmail,
+          })
+        );
+        toast.success("Signed in as Demo User");
+        router.replace("/dashboard");
+        window.location.assign("/dashboard");
         return;
       }
 
-      // Ensure cookies are set and then navigate fast
-      await supabase.auth.getSession();
-      toast.success("Welcome back!");
-      router.replace("/dashboard");
-      // Hard redirect fallback to avoid any client-side routing issues
-      window.location.assign("/dashboard");
+      toast.error("Invalid credentials. Use demo@demo.com / demo123 for demo access.");
+      setIsLoading(false);
     } catch (error) {
       toast.error("An error occurred. Please try again.");
       setIsLoading(false);
